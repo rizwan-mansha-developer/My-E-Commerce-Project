@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+package-lock.json
+backend/.venv/
+
+# Environment
+.env
+.env.local
+backend/.env
+frontend/.env.local
+
+# Build outputs
+frontend/.next/
+frontend/out/
+backend/staticfiles/
+backend/db.sqlite3
+
+# IDE & OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
