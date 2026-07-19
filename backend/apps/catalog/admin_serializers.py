@@ -79,12 +79,10 @@ class ProductAdminSerializer(serializers.ModelSerializer):
             "updated_at",
         )
     def get_primary_image(self, obj: Product) -> str | None:
-        gallery = obj.gallery_images.order_by("sort_order").first()
-        if gallery:
-            return gallery.url
-        if obj.image_urls:
-            return obj.image_urls[0]
-        return None
+        from apps.catalog.serializers import ordered_product_image_urls
+
+        urls = ordered_product_image_urls(obj)
+        return urls[0] if urls else None
     def get_total_stock(self, obj: Product) -> int:
         return sum(
             variant.quantity_in_stock
@@ -158,8 +156,22 @@ class ProductAdminWriteSerializer(serializers.ModelSerializer):
         for item in variants_data:
             ProductVariant.objects.create(product=product, **item)
     def _sync_images(self, product: Product, images_data: list[dict]) -> None:
-        for item in images_data:
+        for item in images_data[:10]:
             ProductImage.objects.create(product=product, **item)
+
+    def validate_image_urls(self, value: list) -> list:
+        cleaned = [str(url).strip() for url in value if str(url).strip()]
+        if len(cleaned) > 10:
+            raise serializers.ValidationError("Maximum 10 product images allowed.")
+        if not cleaned:
+            raise serializers.ValidationError("Add at least one product image.")
+        return cleaned
+
+    def validate_gallery_images(self, value: list) -> list:
+        if len(value) > 10:
+            raise serializers.ValidationError("Maximum 10 product images allowed.")
+        return value
+
     def validate_base_price(self, value: Decimal) -> Decimal:
         if value < 0:
             raise serializers.ValidationError("Base price must be non-negative.")

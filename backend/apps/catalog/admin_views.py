@@ -82,72 +82,13 @@ class ProductAdminListView(APIView):
 
 
 @extend_schema_view(
-    get=extend_schema(tags=["Admin"], summary="Get product (staff)"),
-    put=extend_schema(tags=["Admin"], summary="Update product (staff)"),
-    patch=extend_schema(tags=["Admin"], summary="Partial update product (staff)"),
-    delete=extend_schema(tags=["Admin"], summary="Soft-delete product (staff)"),
-)
-class ProductAdminDetailView(APIView):
-    permission_classes = [IsSuperUser]
-
-    def _get_product(self, product_id: str) -> Product | None:
-        return (
-            Product.all_objects.filter(id=product_id)
-            .select_related("category")
-            .prefetch_related("variants", "gallery_images")
-            .first()
-        )
-
-    def get(self, request: Request, product_id: str) -> Response:
-        product = self._get_product(product_id)
-        if product is None:
-            return Response(
-                {"detail": "Product not found.", "code": "not_found"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        return Response(ProductAdminSerializer(product).data)
-
-    def put(self, request: Request, product_id: str) -> Response:
-        return self._update(request, product_id, partial=False)
-
-    def patch(self, request: Request, product_id: str) -> Response:
-        return self._update(request, product_id, partial=True)
-
-    def delete(self, request: Request, product_id: str) -> Response:
-        product = self._get_product(product_id)
-        if product is None:
-            return Response(
-                {"detail": "Product not found.", "code": "not_found"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        product.soft_delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-    def _update(
-        self, request: Request, product_id: str, *, partial: bool
-    ) -> Response:
-        product = self._get_product(product_id)
-        if product is None:
-            return Response(
-                {"detail": "Product not found.", "code": "not_found"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        serializer = ProductAdminWriteSerializer(
-            product, data=request.data, partial=partial
-        )
-        serializer.is_valid(raise_exception=True)
-        product = serializer.save()
-        return Response(ProductAdminSerializer(product).data)
-
-
-@extend_schema_view(
     get=extend_schema(tags=["Admin"], summary="Get product by slug (staff)"),
     put=extend_schema(tags=["Admin"], summary="Update product by slug (staff)"),
     patch=extend_schema(tags=["Admin"], summary="Partial update product by slug"),
     delete=extend_schema(tags=["Admin"], summary="Soft-delete product by slug"),
 )
-class ProductAdminSlugDetailView(APIView):
-    """Slug-keyed admin product API — preferred for SEO-aligned admin URLs."""
+class ProductAdminDetailView(APIView):
+    """Admin product detail keyed by slug — same shape as public /products/{slug}/."""
 
     permission_classes = [IsSuperUser]
 

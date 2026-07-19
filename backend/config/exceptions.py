@@ -18,8 +18,11 @@ def _first_error_message(data: object) -> str:
             return _first_error_message(data["non_field_errors"])
         if "detail" in data:
             return _first_error_message(data["detail"])
-        for value in data.values():
-            return _first_error_message(value)
+        for key, value in data.items():
+            message = _first_error_message(value)
+            if key in ("non_field_errors", "detail"):
+                return message
+            return f"{key}: {message}"
     return str(data)
 
 

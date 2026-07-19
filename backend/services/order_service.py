@@ -11,6 +11,7 @@ from apps.catalog.models import ProductVariant
 from apps.orders.models import Order, OrderItem, OrderStatus, PaymentMethod
 from services.inventory_service import InventoryService, StockAdjustment
 from services.notification_service import NotificationService
+from services.promotion_service import PromotionService
 from services.tracking import TrackingNumberGenerator
 
 
@@ -29,6 +30,7 @@ class CreateOrderPayload:
     items: Sequence[OrderLineInput]
     payment_method: str = PaymentMethod.COD
     user: object | None = None
+    discount_code: str | None = None
 
 
 @dataclass(frozen=True)
@@ -43,6 +45,7 @@ class ExpressCheckoutInput:
     quantity: int = 1
     payment_method: str = PaymentMethod.COD
     user: object | None = None
+    discount_code: str | None = None
 
 
 class OrderService:
@@ -66,8 +69,21 @@ class OrderService:
         if not payload.items:
             raise ValueError("At least one order line is required.")
 
-        variants = OrderService._load_variants(payload.items)
-        total_amount = OrderService._calculate_total(payload.items, variants)
+        variants = OrderService.load_variants(payload.items)
+        from services.promotion_service import QuoteLine
+
+        applied = PromotionService.quote(
+            items=[
+                QuoteLine(variant_id=line.variant_id, quantity=line.quantity)
+                for line in payload.items
+            ],
+            variants=variants,
+            discount_code=payload.discount_code,
+            user=payload.user,
+            phone=payload.phone_number,
+        )
+        PromotionService.consume_code(applied.discount_code)
+
         initial_status = (
             OrderStatus.PENDING_PAYMENT
             if payload.payment_method != PaymentMethod.COD
@@ -80,7 +96,12 @@ class OrderService:
             phone_number=payload.phone_number.strip(),
             shipping_address=payload.shipping_address.strip(),
             city=payload.city.strip(),
-            total_amount=total_amount,
+            subtotal_amount=applied.subtotal,
+            discount_amount=applied.total_discount,
+            discount_code=applied.discount_code_str,
+            campaign=applied.campaign,
+            referrer_user=applied.referrer_user,
+            total_amount=applied.total_amount,
             payment_method=payload.payment_method,
             status=initial_status,
             user=payload.user if getattr(payload.user, "is_authenticated", False) else None,
@@ -112,6 +133,8 @@ class OrderService:
 
         OrderItem.objects.bulk_create(line_items)
         InventoryService.decrement_bulk(stock_adjustments)
+        # Referral rewards are issued when the order is Confirmed/Delivered
+        # (see transition_status) so cancelled pending orders never grant them.
 
         if payload.payment_method == PaymentMethod.COD:
             transaction.on_commit(
@@ -140,6 +163,7 @@ class OrderService:
                 ],
                 payment_method=payload.payment_method,
                 user=payload.user,
+                discount_code=payload.discount_code,
             )
         )
 
@@ -163,13 +187,22 @@ class OrderService:
 
         order.status = new_status
         order.save(update_fields=["status", "updated_at"])
+
+        if new_status in {OrderStatus.CONFIRMED, OrderStatus.DELIVERED}:
+            PromotionService.issue_loyalty_for_order(order)
+            if order.referrer_user_id:
+                PromotionService.issue_referral_reward(
+                    referrer=order.referrer_user,
+                    source_order=order,
+                )
+
         return order
 
     @staticmethod
-    def _load_variants(
-        items: Sequence[OrderLineInput],
+    def load_variants(
+        items: Sequence[OrderLineInput] | Sequence[object],
     ) -> dict[UUID, ProductVariant]:
-        variant_ids = [item.variant_id for item in items]
+        variant_ids = [item.variant_id for item in items]  # type: ignore[attr-defined]
         variants = {
             variant.id: variant
             for variant in ProductVariant.objects.select_related("product").filter(

@@ -3,6 +3,20 @@ from decimal import Decimal
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from apps.catalog.models import Category, Product, ProductImage, ProductVariant
+from services.storage_service import StorageService
+
+
+def ordered_product_image_urls(obj: Product) -> list[str]:
+    """Gallery first (by sort_order), else JSON image_urls — all absolutized."""
+    gallery = list(obj.gallery_images.order_by("sort_order"))
+    if gallery:
+        return [
+            StorageService.absolutize_media_url(image.url) or image.url
+            for image in gallery
+        ]
+    return [
+        StorageService.absolutize_media_url(url) or url for url in (obj.image_urls or [])
+    ]
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -53,12 +67,8 @@ class WishlistProductSerializer(serializers.ModelSerializer):
         return str(obj.base_price.quantize(Decimal("0.01")))
 
     def get_primary_image(self, obj: Product) -> str | None:
-        gallery = obj.gallery_images.order_by("sort_order").first()
-        if gallery:
-            return gallery.url
-        if obj.image_urls:
-            return obj.image_urls[0]
-        return None
+        urls = ordered_product_image_urls(obj)
+        return urls[0] if urls else None
 
 class WishlistStateSerializer(serializers.Serializer):
     product_ids = serializers.ListField(child=serializers.UUIDField())
@@ -98,6 +108,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 class ProductListSerializer(serializers.ModelSerializer):
     primary_image = serializers.SerializerMethodField()
+    hover_image = serializers.SerializerMethodField()
     price_display = serializers.SerializerMethodField()
     category_slug = serializers.SerializerMethodField()
     category_name = serializers.SerializerMethodField()
@@ -116,6 +127,7 @@ class ProductListSerializer(serializers.ModelSerializer):
             "is_on_sale",
             "discount_percent",
             "primary_image",
+            "hover_image",
             "video_url",
             "category_slug",
             "category_name",
@@ -124,12 +136,13 @@ class ProductListSerializer(serializers.ModelSerializer):
             "featured_sort",
         )
     def get_primary_image(self, obj: Product) -> str | None:
-        gallery = obj.gallery_images.order_by("sort_order").first()
-        if gallery:
-            return gallery.url
-        if obj.image_urls:
-            return obj.image_urls[0]
-        return None
+        urls = ordered_product_image_urls(obj)
+        return urls[0] if urls else None
+
+    def get_hover_image(self, obj: Product) -> str | None:
+        urls = ordered_product_image_urls(obj)
+        return urls[1] if len(urls) > 1 else None
+
     def get_price_display(self, obj: Product) -> str:
         return str(obj.base_price.quantize(Decimal("0.01")))
     @extend_schema_field(serializers.CharField(allow_null=True))
@@ -174,15 +187,23 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         )
     @extend_schema_field(ProductImageSerializer(many=True))
     def get_images(self, obj: Product) -> list[dict[str, object]]:
-        gallery = [
-            {"url": image.url, "alt_text": image.alt_text, "sort_order": image.sort_order}
-            for image in obj.gallery_images.order_by("sort_order")
-        ]
+        gallery = list(obj.gallery_images.order_by("sort_order")[:10])
         if gallery:
-            return gallery
+            return [
+                {
+                    "url": StorageService.absolutize_media_url(image.url) or image.url,
+                    "alt_text": image.alt_text,
+                    "sort_order": image.sort_order,
+                }
+                for image in gallery
+            ]
         return [
-            {"url": url, "alt_text": obj.title, "sort_order": index}
-            for index, url in enumerate(obj.image_urls)
+            {
+                "url": StorageService.absolutize_media_url(url) or url,
+                "alt_text": obj.title,
+                "sort_order": index,
+            }
+            for index, url in enumerate((obj.image_urls or [])[:10])
         ]
     def get_price_display(self, obj: Product) -> str:
         return str(obj.base_price.quantize(Decimal("0.01")))

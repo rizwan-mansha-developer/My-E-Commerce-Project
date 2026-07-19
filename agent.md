@@ -50,7 +50,7 @@ Wire storefront landing to DB products; staff manage categories, Top Picks, Best
 
 ```bash
 # Backend (ASGI for WebSocket admin feed)
-cd backend && .venv\Scripts\uvicorn config.asgi:application --reload --port 8000
+cd backend && .venv\Scripts\uvicorn config.asgi:application --reload --reload-exclude "media/*" --reload-exclude "*.pyc" --port 8000
 
 # Frontend
 cd frontend && pnpm dev

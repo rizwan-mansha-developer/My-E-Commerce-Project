@@ -46,6 +46,34 @@ class Order(models.Model):
     )
     shipping_address = models.TextField()
     city = models.CharField(max_length=100, db_index=True)
+    subtotal_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0.00"))],
+        help_text="Cart total before discounts.",
+    )
+    discount_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
+    discount_code = models.CharField(max_length=32, blank=True, db_index=True)
+    campaign = models.ForeignKey(
+        "promotions.SeasonalCampaign",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="orders",
+    )
+    referrer_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="referred_orders",
+    )
     total_amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,

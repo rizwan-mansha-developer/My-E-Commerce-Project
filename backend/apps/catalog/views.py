@@ -150,7 +150,7 @@ class ProductImageUploadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         try:
-            url = StorageService.upload_product_image(uploaded)
+            url = StorageService.upload_product_media(uploaded)
         except ValueError as exc:
             return Response(
                 {"detail": str(exc), "code": "invalid_request"},

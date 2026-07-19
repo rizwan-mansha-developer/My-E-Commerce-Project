@@ -21,6 +21,7 @@ REST_AUTH = {
     "JWT_AUTH_SAMESITE": "Lax",
     "SESSION_LOGIN": False,
     "USER_DETAILS_SERIALIZER": "apps.accounts.serializers.UserSerializer",
+    "PASSWORD_RESET_SERIALIZER": "apps.accounts.serializers.DarlingPasswordResetSerializer",
 }
 
 ACCOUNT_EMAIL_VERIFICATION = "none"

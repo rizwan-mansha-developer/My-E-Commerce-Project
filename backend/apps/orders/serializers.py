@@ -27,6 +27,13 @@ class CheckoutBaseSerializer(serializers.Serializer):
         default=PaymentMethod.COD,
     )
     cod_confirmed = serializers.BooleanField(default=False)
+    discount_code = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=32,
+        trim_whitespace=True,
+        default="",
+    )
 
     def validate_phone_number(self, value: str) -> str:
         validate_pakistan_mobile(value)
@@ -84,6 +91,9 @@ class ExpressOrderResponseSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "tracking_number",
+            "subtotal_amount",
+            "discount_amount",
+            "discount_code",
             "total_amount",
             "payment_method",
             "status",

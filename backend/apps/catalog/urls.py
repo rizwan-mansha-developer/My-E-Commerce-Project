@@ -9,7 +9,6 @@ from apps.catalog.admin_views import (
     InventoryAdminListView,
     ProductAdminDetailView,
     ProductAdminListView,
-    ProductAdminSlugDetailView,
 )
 from apps.catalog.views import (
     CategoryListView,
@@ -35,12 +34,7 @@ urlpatterns = [
         name="admin-product-image-upload",
     ),
     path(
-        "admin/products/by-slug/<slug:slug>/",
-        ProductAdminSlugDetailView.as_view(),
-        name="admin-product-slug-detail",
-    ),
-    path(
-        "admin/products/<uuid:product_id>/",
+        "admin/products/<slug:slug>/",
         ProductAdminDetailView.as_view(),
         name="admin-product-detail",
     ),

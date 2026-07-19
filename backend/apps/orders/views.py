@@ -66,6 +66,7 @@ class ExpressCheckoutView(APIView):
                     quantity=data["quantity"],
                     payment_method=data["payment_method"],
                     user=user,
+                    discount_code=data.get("discount_code") or None,
                 )
             )
         except InsufficientStockError as exc:
@@ -131,6 +132,7 @@ class CartCheckoutView(APIView):
                     ],
                     payment_method=data["payment_method"],
                     user=user,
+                    discount_code=data.get("discount_code") or None,
                 )
             )
         except InsufficientStockError as exc:

@@ -39,6 +39,8 @@ urlpatterns = [
     path("api/v1/health/", health_check, name="health-check"),
     path("api/v1/catalog/", include("apps.catalog.urls")),
     path("api/v1/orders/", include("apps.orders.urls")),
+    path("api/v1/promotions/", include("apps.promotions.urls")),
+    path("api/v1/content/", include("apps.content.urls")),
     path("api/auth/", include("dj_rest_auth.urls")),
     path("api/auth/registration/", include("dj_rest_auth.registration.urls")),
     path("api/auth/", include("apps.accounts.urls")),
